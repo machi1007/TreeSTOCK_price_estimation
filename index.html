@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>📈 七向度情緒股價預測 (可縮放看盤)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<style>
+body{font-family:"Microsoft JhengHei";background:#eef3f8;padding:20px;}
+h1{text-align:center;}
+textarea{width:100%;height:220px;font-size:14px;padding:10px;}
+button{padding:10px 20px;margin:10px 0;font-size:16px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;}
+button:hover{background:#2980b9;}
+table{width:100%;border-collapse:collapse;background:white;margin-top:20px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background:#2c3e50;color:white;}
+.up{ color:red; }   
+.down{ color:green; }
+.note{background:#fff3cd;border:1px solid #ffeeba;padding:10px;margin-bottom:10px;border-radius:5px;}
+canvas{background:white;margin-top:20px;border:1px solid #ccc;}
+</style>
+</head>
+<body>
+
+<h1>📊 七向度情緒股價預測 (可縮放看盤)</h1>
+
+<div class="note">
+📌 貼入資料格式（不要包含標題列）：<br>
+日期	通膨指數	建議週薪	CPI (%)	貨幣供給量	GDP	GDP成長率(%)	股票結算價
+</div>
+
+<textarea id="inputData">
+2026-02-23	1	0	0	5600	1960	-65.9	10
+2026-02-26	1	10	0	11200	4200	-26.8	10.4
+2026-03-05	1.1	10	30	12500	4655	-18.9	9.7
+2026-03-06	1.2	10	40	14000	5180	-9.8	10.2
+2026-03-09	1.04	10	20	14560	5376	-6.3	11.1
+2026-03-10	1.1	10	20	15400	5670	-1.2	11.4
+2026-03-11	1.06	10	50	14840	5474	-4.6	12.3
+2026-03-12	1.04	10	55	14560	5376	-6.3	13.5
+2026-03-13	1.4	15	114.3	15400	5810	1.2	14.4
+2026-03-16	1.2	30	100	16800	6720	17.1	15.7
+2026-03-17	1.13	27	100	15763.16	6273	9.3	15.2
+2026-03-18	1.18	28	1.6	16521.12	6566	14.4	16.6
+2026-03-19	1.36	33	1.6	19057.08	7594	32.3	15.4
+</textarea>
+
+<br>
+<button onclick="predictNextPrice()">🚀 預測下一期股價</button>
+
+<table id="resultTable"></table>
+<canvas id="priceChart" width="1000" height="400"></canvas>
+
+<script>
+let chart;
+
+function predictNextPrice(){
+    let text = document.getElementById("inputData").value.trim();
+    let lines = text.split("\n");
+    if(lines.length < 1){ alert("請至少貼入一筆歷史資料！"); return; }
+
+    let dates=[], prices=[];
+    for(let i=0;i<lines.length;i++){
+        let cols = lines[i].split("\t");
+        if(cols.length<8){ alert("資料格式錯誤，每行需8欄！"); return; }
+        dates.push(cols[0]);
+        prices.push(parseFloat(cols[7]));
+    }
+
+    // 歷史平均漲跌率
+    let avgChange = 0;
+    for(let i=1;i<prices.length;i++){
+        avgChange += (prices[i]-prices[i-1])/prices[i-1];
+    }
+    avgChange /= (prices.length-1);
+
+    // 最後一天經濟資料
+    let lastLine = lines[lines.length-1].split("\t");
+    let inflation = parseFloat(lastLine[1]);
+    let cpi = parseFloat(lastLine[3]);
+    let gdpGrowth = parseFloat(lastLine[6]);
+    let prevPrice = parseFloat(lastLine[7]);
+
+    // 經濟因素影響股價
+    let econFactor = 0.5*(gdpGrowth/100)-0.3*(inflation-1)-0.2*(cpi/100);
+    let baseChange = avgChange + econFactor;
+    if(baseChange>0.1) baseChange=0.1;
+    if(baseChange<-0.1) baseChange=-0.1;
+
+    // 七向度情緒對應股價變動
+    const sentimentLevels = {
+        "高度樂觀":0.03,
+        "中度樂觀":0.02,
+        "輕度樂觀":0.01,
+        "中性":0,
+        "輕度悲觀":-0.01,
+        "中度悲觀":-0.02,
+        "高度悲觀":-0.03
+    };
+
+    // 判斷真實情緒
+    let score = avgChange + 0.5*(gdpGrowth/100) - 0.3*(inflation-1) - 0.2*(cpi/100);
+    let sentiment = "";
+    if(score>0.05) sentiment="高度樂觀";
+    else if(score>0.03) sentiment="中度樂觀";
+    else if(score>0) sentiment="輕度樂觀";
+    else if(score>-0.03) sentiment="中性";
+    else if(score>-0.05) sentiment="輕度悲觀";
+    else if(score>-0.08) sentiment="中度悲觀";
+    else sentiment="高度悲觀";
+
+    let sentimentFactor = sentimentLevels[sentiment];
+
+    // 建立表格
+    let table = `<tr>
+        <th>情境</th><th>前一天股價</th><th>預測股價</th><th>變動%</th><th>說明</th>
+    </tr>`;
+
+    // 七個情緒情境股價
+    let scenarioNames = Object.keys(sentimentLevels);
+    let chartData={};
+    scenarioNames.forEach(name=>{
+        chartData[name] = [...prices]; //保留歷史股價
+        let newPrice = prevPrice*(1+baseChange+sentimentLevels[name]);
+        newPrice = Math.round(newPrice*10)/10;
+        chartData[name].push(newPrice);
+
+        let percent = ((baseChange+sentimentLevels[name])*100).toFixed(1)+"%";
+        let colorClass = (baseChange+sentimentLevels[name])>=0?"up":"down";
+        table += `<tr>
+            <td>${name}</td>
+            <td>${prevPrice}</td>
+            <td class="${colorClass}">${newPrice}</td>
+            <td class="${colorClass}">${percent}</td>
+            <td>歷史趨勢 ${(avgChange*100).toFixed(2)}% + 經濟因素(GDP:${gdpGrowth}%, 通膨:${inflation}, CPI:${cpi})</td>
+        </tr>`;
+    });
+
+    // 真實情緒股價
+    let realisticPrice = prevPrice*(1+baseChange+sentimentFactor);
+    realisticPrice = Math.round(realisticPrice*10)/10;
+    chartData["真實情況建議"] = [...prices, realisticPrice];
+    table += `<tr style="background:#f0f0f0;">
+        <td colspan="2"><b>真實情況建議 (${sentiment})</b></td>
+        <td><b>${realisticPrice}</b></td>
+        <td><b>${((baseChange+sentimentFactor)*100).toFixed(1)}%</b></td>
+        <td>自動判斷情緒: ${sentiment}</td>
+    </tr>`;
+
+    // X 軸下一期
+    let chartDates = [...dates, "下一期"];
+
+    document.getElementById("resultTable").innerHTML = table;
+
+    // 繪圖
+    if(chart) chart.destroy();
+    chart = new Chart(document.getElementById("priceChart"),{
+        type:'line',
+        data:{
+            labels: chartDates,
+            datasets:[
+                {label:"高度樂觀", data:chartData["高度樂觀"], borderColor:'darkred', fill:false},
+                {label:"中度樂觀", data:chartData["中度樂觀"], borderColor:'red', fill:false},
+                {label:"輕度樂觀", data:chartData["輕度樂觀"], borderColor:'orange', fill:false},
+                {label:"中性", data:chartData["中性"], borderColor:'gray', fill:false},
+                {label:"輕度悲觀", data:chartData["輕度悲觀"], borderColor:'lightgreen', fill:false},
+                {label:"中度悲觀", data:chartData["中度悲觀"], borderColor:'green', fill:false},
+                {label:"高度悲觀", data:chartData["高度悲觀"], borderColor:'darkgreen', fill:false},
+                {label:"真實情況建議", data:chartData["真實情況建議"], borderColor:'blue', fill:false, borderWidth:2}
+            ]
+        },
+        options:{
+            responsive:true,
+            plugins:{
+                legend:{position:'top'},
+                zoom:{
+                    pan:{
+                        enabled:true,
+                        mode:'x',
+                        modifierKey:'ctrl'
+                    },
+                    zoom:{
+                        wheel:{enabled:true},
+                        pinch:{enabled:true},
+                        mode:'x'
+                    }
+                }
+            },
+            scales:{
+                y:{beginAtZero:false,title:{display:true,text:'股價'}},
+                x:{title:{display:true,text:'日期'}}
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>
