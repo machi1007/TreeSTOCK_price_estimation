@@ -73,7 +73,9 @@ canvas{background:white;margin-top:20px;border:1px solid #ccc;}
 2026-03-19	1.36	33	1.6	19057.08	7594	32.3	5584	-2.7	15.4	0.163
 2026-03-20	1.48	35	40.6	20678.00	8217	43.2	5552	-3.3	16.9	0.158
 2026-03-23	1.43	34	84.8	19972.40	7942	38.4	5554	-3.2	17.7	0.167
-2026-03-24	1.43	4	99.2	19560.80	7798	35.9	5570	-3.0	17	0.183</textarea>
+2026-03-24	1.43	4	99.2	19560.80	7798	35.9	5570	-3.0	17	0.183
+2026-03-25	1.32	32	147.9	18454.80	7355	28.1	5572	-2.9	15.6	0.2
+</textarea>
     </div>
     
     <div class="input-box">
@@ -99,6 +101,7 @@ canvas{background:white;margin-top:20px;border:1px solid #ccc;}
 14	20260320	10000	點數銀行	16.9	1.5	10%	6	3
 15	20260323	10000	點數銀行	17.7	0.8	5%	0	2
 16	20260324	10000	點數銀行	17	-0.7	-4%	3	1
+17	20260325	10000	點數銀行	15.6	-1.4	-8%	3	0
 </textarea>
     </div>
 </div>
@@ -108,6 +111,11 @@ canvas{background:white;margin-top:20px;border:1px solid #ccc;}
 <table id="resultTable"></table>
 <canvas id="priceChart" width="1000" height="400"></canvas>
 
+<div id="analysisReport" style="margin-top: 30px; padding: 20px; background: #fff; border-left: 6px solid #2c3e50; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none;">
+    <h3 style="margin-top: 0; color: #2c3e50;">📊 大樹經濟學家深度分析報告</h3>
+    <div id="reportContent" style="line-height: 1.8; font-size: 15px; color: #333;"></div>
+</div>
+
 <script>
 let chart;
 
@@ -115,7 +123,12 @@ function predictNextPrice(){
     // --- 1. 處理經濟數據 (讀取 11 欄格式) ---
     let text = document.getElementById("inputData").value.trim();
     let lines = text.split("\n").filter(l => l.includes("-")); 
-    if(lines.length < 1){ alert("請至少貼入一筆經濟歷史資料！"); return; }
+    
+    // ⚠️ 修復：確保至少有兩筆資料才能計算前期比較
+    if(lines.length < 2){ 
+        alert("請至少貼入「兩筆」經濟歷史資料，才能計算變動率！"); 
+        return; 
+    }
 
     let dates=[], prices=[], gdps=[];
     for(let i=0;i<lines.length;i++){
@@ -136,21 +149,18 @@ function predictNextPrice(){
     let totalSells = 0;  // 近 N 期賣
     
     if(tradeLines.length > 0) {
-        // 第一步驟：找出所有不重複的日期，並計算總累積張數
         let uniqueDates = [];
         for(let i=0; i<tradeLines.length; i++){
             let cols = tradeLines[i].split("\t");
             if(cols.length >= 9){
                 let dateStr = cols[1]; 
                 if(!uniqueDates.includes(dateStr)) uniqueDates.push(dateStr);
-                totalLots += (parseInt(cols[7]) || 0) - (parseInt(cols[8]) || 0); // 歷史所有買賣總和
+                totalLots += (parseInt(cols[7]) || 0) - (parseInt(cols[8]) || 0); 
             }
         }
         
-        // 第二步驟：只保留最後 N 個日期
         let recentDates = uniqueDates.slice(-calcDays);
 
-        // 第三步驟：加總這近 N 期的買賣張數
         for(let i=0; i<tradeLines.length; i++){
             let cols = tradeLines[i].split("\t");
             if(cols.length >= 9){
@@ -163,8 +173,8 @@ function predictNextPrice(){
         }
     }
     
-    let netBuy = totalBuys - totalSells; // 近期籌碼淨買入
-    let momentumFactor = netBuy * 0.005; // 籌碼動能係數
+    let netBuy = totalBuys - totalSells; 
+    let momentumFactor = netBuy * 0.005; 
 
     // 更新頂部 Data Hub 面板
     let totalShares = totalLots * 10;
@@ -174,30 +184,64 @@ function predictNextPrice(){
     document.getElementById("resNetBuy").innerText = netBuy + " 張";
     document.getElementById("resGdp").innerText = latestGdp;
 
-    // --- 3. 計算預測基準 (原版邏輯) ---
-    let avgChange = 0;
-    if(prices.length > 1) {
-        for(let i=1;i<prices.length;i++){
-            avgChange += (prices[i]-prices[i-1])/prices[i-1];
-        }
-        avgChange /= (prices.length-1);
+    // --- 3. 計算預測基準 (完美升級版邏輯 + 估值地心引力) ---
+    // 🛠️ 修復：定義 lastLine 和 prevLine
+    let lastLine = lines[lines.length - 1].split("\t");
+    let prevLine = lines[lines.length - 2].split("\t");
+
+    // 🛠️ 修復：計算歷史慣性 (avgChange)，此處取最近一期的漲跌幅作為慣性基準
+    let prevPrice = parseFloat(lastLine[9]);       
+    let olderPrice = parseFloat(prevLine[9]);
+    let avgChange = olderPrice > 0 ? (prevPrice - olderPrice) / olderPrice : 0;
+
+    let inflation = parseFloat(lastLine[1]);       
+    let wage = parseFloat(lastLine[2]);            
+    let cpi = parseFloat(lastLine[3]);             
+    let money = parseFloat(lastLine[4]);           
+    let prevMoney = parseFloat(prevLine[4]); 
+    let prevCpi = parseFloat(prevLine[3]);     
+    let latestNominalGdp = parseFloat(lastLine[5]); 
+    let realGdpGrowth = parseFloat(lastLine[8]);   
+    let gini = parseFloat(lastLine[10]);           
+
+    // 🍎 估值地心引力 (巴菲特指標)
+    let marketCap = totalShares * prevPrice; 
+    let valuationRatio = (latestNominalGdp > 0) ? (marketCap / latestNominalGdp) : 1.5; 
+    let factorGravity = 0;
+    let gravityStatus = "估值合理";
+
+    if (valuationRatio >= 2.5) {
+        factorGravity = -0.05; 
+        gravityStatus = "🔴 嚴重高估 (泡沫警告)";
+    } else if (valuationRatio >= 1.8) {
+        factorGravity = -0.02; 
+        gravityStatus = "🟡 估值偏高 (存在壓力)";
+    } else if (valuationRatio <= 0.8) {
+        factorGravity = 0.05;  
+        gravityStatus = "🟢 嚴重低估 (絕佳買點)";
+    } else if (valuationRatio <= 1.2) {
+        factorGravity = 0.02;  
+        gravityStatus = "🟢 估值偏低 (具備潛力)";
+    } else {
+        factorGravity = 0;
+        gravityStatus = "⚪ 估值合理 (安全區間)";
     }
 
-    let lastLine = lines[lines.length-1].split("\t");
-    let inflation = parseFloat(lastLine[1]);     // 通膨
-    let cpi = parseFloat(lastLine[3]);           // CPI漲幅
-    let gdpGrowth = parseFloat(lastLine[6]);     // 名目成長率
-    let prevPrice = parseFloat(lastLine[9]);     // 股票結算價
+    let moneyGrowth = (prevMoney && prevMoney > 0) ? ((money - prevMoney) / prevMoney) : 0;
+    let cpiGrowth = (prevCpi && prevCpi > 0) ? ((cpi - prevCpi) / prevCpi) : 0; 
+    let cpiMultiplier = 10; 
+    let sensitiveCpiGrowth = cpiGrowth * cpiMultiplier;
 
-    // 原版經濟公式：結合 GDP成長、通膨與CPI
-    let econFactor = 0.5*(gdpGrowth/100) - 0.3*(inflation-1) - 0.2*(cpi/100);
-    
-    // 基準漲跌 = 歷史均值 + 經濟因素 + 籌碼動能
+    let factorGDP = 0.4 * (realGdpGrowth / 100);
+    let factorMoney = 0.3 * moneyGrowth;
+    let factorInflation = -0.15 * (inflation - 1) - 0.3 * sensitiveCpiGrowth; 
+    let factorGini = 0.05 * (gini);
+
+    let econFactor = factorGDP + factorMoney + factorInflation + factorGini + factorGravity;
     let baseChange = avgChange + econFactor + momentumFactor;
     
-    // 限制基準變動極值，避免太誇張
-    if(baseChange>0.1) baseChange=0.1;
-    if(baseChange<-0.1) baseChange=-0.1;
+    if(baseChange > 0.1) baseChange = 0.1;
+    if(baseChange < -0.1) baseChange = -0.1;
 
     // --- 4. 判斷情緒 ---
     const sentimentLevels = {
@@ -236,7 +280,6 @@ function predictNextPrice(){
         let finalP = rawP;
         let limitNote = "";
 
-        // 套用漲跌停限制
         if (finalP > maxLimit) { finalP = maxLimit; limitNote = "⚠️ 觸發漲停"; }
         if (finalP < minLimit) { finalP = minLimit; limitNote = "⚠️ 觸發跌停"; }
 
@@ -253,13 +296,12 @@ function predictNextPrice(){
             <td class="${colorClass}">${actualDiff}</td>
             <td class="limit">${limitNote}</td>
             <td style="text-align:left; font-size:13px;">
-                <b>經濟:</b> (GDP成長:${gdpGrowth}%, 通膨:${inflation})<br>
+                <b>經濟:</b> (實質GDP成長:${realGdpGrowth}%, 通膨:${inflation})<br>
                 <b>籌碼(近${calcDays}期):</b> 淨買入 ${netBuy} 張 (動能影響 ${(momentumFactor*100).toFixed(1)}%)
             </td>
         </tr>`;
     });
 
-    // 真實情況建議 (同樣過漲跌停)
     let rawReal = prevPrice * (1 + baseChange + sentimentFactor);
     let realPrice = rawReal;
     let realNote = "";
@@ -316,6 +358,56 @@ function predictNextPrice(){
             }
         }
     });
+
+    // ==========================================
+    // 📝 自動生成「經濟學家分析報告」
+    // ==========================================
+    
+    const toPercent = (num) => {
+        let p = (num * 100).toFixed(2);
+        return p > 0 ? `+${p}%` : `${p}%`;
+    };
+
+    let reportHTML = `
+        <p>根據最新一期的經濟數據，本次股價的漲跌動能主要由以下幾個基本面組成：</p>
+        <ul style="list-style-type: none; padding-left: 0;">
+            <li style="margin-bottom: 10px;">
+                <b>📈 實質經濟動能 (權重 40%)：</b><br>
+                班級目前的實質 GDP 成長率為 <b>${realGdpGrowth}%</b>。因為企業/學生實質創造了獲利，為股價基本面帶來了 <b style="color: ${factorGDP >= 0 ? 'red' : 'green'};">${toPercent(factorGDP)}</b> 的推力。
+            </li>
+            <li style="margin-bottom: 10px;">
+                <b>💸 資金熱錢效應 (權重 30%)：</b><br>
+                相比上一期，市場貨幣供給量變動了 <b>${toPercent(moneyGrowth)}</b>。當市場上流通的點數(資金)變多時，錢容易流向股市，這為股價貢獻了 <b style="color: ${factorMoney >= 0 ? 'red' : 'green'};">${toPercent(factorMoney)}</b> 的影響。
+            </li>
+            <li style="margin-bottom: 10px;">
+                <b>📉 物價與通膨壓力 (權重 30%)：</b><br>
+                目前的基礎通膨指數為 <b>${inflation}</b>。而班級物價總平均(CPI)雖然目前來到 ${cpi}，但相比前期變動了 <b>${(cpiGrowth * 100).toFixed(2)}%</b>。系統啟動敏銳偵測，這股物價波動對股市產生了 <b style="color: ${factorInflation > 0 ? 'red' : 'green'};">${toPercent(factorInflation)}</b> 的拉力。
+            </li>
+            <li style="margin-bottom: 10px;">
+                <b>⚖️ 貧富差距效應 (權重 5%)：</b><br>
+                當前吉尼係數為 <b>${gini}</b>。財富若過度集中，大戶容易將閒置資金投入股市炒作，微幅帶來了 <b style="color: ${factorGini >= 0 ? 'red' : 'green'};">${toPercent(factorGini)}</b> 的預期影響。
+            </li>
+            <li style="margin-bottom: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
+                <b>🍎 估值地心引力 (巴菲特指標)：</b><br>
+                班級股市總市值為 <b>${Math.round(marketCap)}</b> 點，對比名目 GDP(${latestNominalGdp})，估值倍數為 <b>${valuationRatio.toFixed(2)} 倍</b>。<br>
+                系統判定目前狀態為「<b>${gravityStatus}</b>」，這為股價帶來了 <b style="color: ${factorGravity >= 0 ? 'red' : 'green'};">${toPercent(factorGravity)}</b> 的修正拉力！
+            </li>
+            <li style="margin-bottom: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
+                <b>🛍️ 投資人情緒與籌碼動能：</b><br>
+                近 ${calcDays} 期內，全班淨買賣超為 <b>${netBuy} 張</b>。這股市場追捧(或恐慌)的情緒，直接為股價附加了 <b style="color: ${momentumFactor >= 0 ? 'red' : 'green'};">${toPercent(momentumFactor)}</b> 的動能！
+            </li>
+        </ul>
+        <p style="font-weight: bold; color: #d35400;">
+            💡 總結：總體經濟分數(${toPercent(econFactor)}) + 籌碼動能(${toPercent(momentumFactor)}) + 歷史慣性(${toPercent(avgChange)}) = 決定了最終的股價走勢！
+        </p>
+    `;
+
+    let reportDiv = document.getElementById("analysisReport");
+    let contentDiv = document.getElementById("reportContent");
+    if(reportDiv && contentDiv) {
+        contentDiv.innerHTML = reportHTML;
+        reportDiv.style.display = "block"; 
+    }
 }
 </script>
 
