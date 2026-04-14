@@ -2,445 +2,448 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>📈 完美升級版：七向度預測 (11欄+籌碼動能+10%限幅)</title>
+<title>🔒 決策系統：大樹銀行股價計算器</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <style>
-body{font-family:"Microsoft JhengHei";background:#eef3f8;padding:20px;}
-h1{text-align:center;}
+/* 基礎樣式 */
+body{font-family:"Microsoft JhengHei";background:#1a202c;padding:20px; color: #cbd5e0; margin: 0;}
+h1{text-align:center; color: #fff;}
 .input-container { display: flex; gap: 20px; }
 .input-box { flex: 1; }
-textarea{width:100%;height:250px;font-size:13px;padding:10px; box-sizing: border-box; white-space: pre; border:1px solid #ccc; background:#fff;}
-button{padding:15px 20px;margin:10px 0;font-size:18px;background:#2c3e50;color:#f1c40f;border:none;border-radius:5px;cursor:pointer; width: 100%; font-weight: bold; border: 2px solid #f1c40f;}
-button:hover{background:#34495e;}
-table{width:100%;border-collapse:collapse;background:white;margin-top:20px;}
-th,td{border:1px solid #ccc;padding:8px;text-align:center;}
-th{background:#2c3e50;color:white;}
-.up{ color:red; font-weight: bold;}   
-.down{ color:green; font-weight: bold;}
-.limit{ color: orange; font-style: italic; font-size: 13px; font-weight: bold; } 
-.note{background:#fff3cd;border:1px solid #ffeeba;padding:10px;margin-bottom:10px;border-radius:5px; font-size: 14px; line-height: 1.5;}
-.data-hub {
-    background: #1a252f; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;
-    display: flex; justify-content: space-around; align-items: center; border: 3px solid #f1c40f;
-}
-.hub-item { text-align: center; }
-.hub-label { font-size: 14px; color: #bdc3c7; }
-.hub-value { font-size: 24px; font-weight: bold; color: #f1c40f; display: block; margin-top: 5px;}
-canvas{background:white;margin-top:20px;border:1px solid #ccc;}
+textarea{width:100%;height:250px;font-size:13px;padding:10px; box-sizing: border-box; white-space: pre; border:1px solid #4a5568; background:#2d3748; color: #fff; font-family: monospace;}
+button{padding:15px 20px;margin:10px 0;font-size:18px;background:#2d3748;color:#f6e05e;border:none;border-radius:5px;cursor:pointer; width: 100%; font-weight: bold; border: 2px solid #f6e05e; transition: 0.2s;}
+button:hover{background:#4a5568;}
+table{width:100%;border-collapse:collapse;background:#2d3748;margin-top:20px; color: white;}
+th,td{border:1px solid #4a5568;padding:8px;text-align:center;}
+th{background:#1a202c;color:#f6e05e;}
+.up{ color:#fc8181; font-weight: bold;}   
+.down{ color:#68d391; font-weight: bold;}
+.limit{ color: #ed8936; font-style: italic; font-size: 13px; } 
+.note{background:#2d3748;border:1px solid #4a5568;padding:10px;margin-bottom:10px;border-radius:5px; font-size: 14px; color: #a0aec0;}
+.data-hub { background: #1a202c; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-around; align-items: center; border: 2px solid #f6e05e; }
+.hub-value { font-size: 24px; font-weight: bold; color: #f6e05e; margin-top: 5px;}
+canvas{background:#2d3748;margin-top:20px;border:1px solid #4a5568; border-radius: 10px;}
+
+/* 🔒 強制登入牆樣式 */
+.login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a202c; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.login-box { background: #2d3748; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; width: 350px; border: 1px solid #4a5568;}
+.login-box h2 { color: #f6e05e; margin-top: 0; margin-bottom: 25px; }
+.login-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #4a5568; border-radius: 5px; background: #1a202c; color: white; box-sizing: border-box; font-size: 16px;}
+.login-btn { background: #f6e05e; color: #1a202c; border: none; cursor: pointer; margin-top: 15px; padding: 12px;}
+.login-btn:hover { background: #ecc94b; }
+
+/* 預設隱藏主畫面 */
+#mainContent { display: none; max-width: 1200px; margin: 0 auto; }
 </style>
 </head>
 <body>
 
-<h1>📊 大樹銀行：籌碼動能與數據預測中心</h1>
-
-<div id="dataHub" class="data-hub" style="display:none;">
-    <div class="hub-item">
-        <span class="hub-label">市場累計總發行</span>
-        <span id="resShares" class="hub-value" style="color: #2ecc71;">0 股</span>
-    </div>
-    <div style="font-size: 30px; color: #7f8c8d;">|</div>
-    <div class="hub-item">
-        <span class="hub-label">近期籌碼淨買入</span>
-        <span id="resNetBuy" class="hub-value" style="color: #e74c3c;">0 張</span>
-    </div>
-    <div style="font-size: 30px; color: #7f8c8d;">|</div>
-    <div class="hub-item">
-        <span class="hub-label">最新名目 GDP</span>
-        <span id="resGdp" class="hub-value">0</span>
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+        <h2>🏦 內部決策系統</h2>
+        <p style="color: #a0aec0; margin-bottom: 20px;">請輸入教師權限帳號進行驗證</p>
+        <input type="email" id="emailInput" class="login-input" placeholder="教師信箱 (與盲盒相同)">
+        <input type="password" id="pwdInput" class="login-input" placeholder="管理密碼">
+        <button class="login-btn" onclick="handleLogin()">執行身分驗證</button>
+        <p id="loginError" style="color: #fc8181; font-size: 14px; display: none; margin-top: 15px;">❌ 驗證失敗，帳號或密碼錯誤</p>
     </div>
 </div>
 
-<div class="input-container">
-    <div class="input-box">
-        <div class="note">
-            <b>📌 1. 經濟數據 (升級 11 欄格式)</b><br>
-            格式：日期 / 通膨 / 週薪 / CPI / 貨幣供給 / 名目GDP / 名目成長率 / 實質GDP / 實質成長率 / <b>股票結算價</b> / 吉尼係數
+<div id="mainContent">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #2d3748; padding: 15px; border-radius: 10px;">
+        <span style="color: #f6e05e; font-weight: bold; font-size: 18px;">🔐 教師管理模式：已連線至專屬資料庫</span>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="saveDataToCloud()" id="saveBtn" style="width: auto; padding: 8px 15px; font-size: 14px; background: #c53030; color: white; margin: 0; border: none;">💾 儲存並同步數據</button>
+            <button onclick="handleLogout()" style="width: auto; padding: 8px 15px; font-size: 14px; background: #718096; color: white; margin: 0; border: none;">🚪 登出系統</button>
         </div>
-        <textarea id="inputData">
-2026-02-23	1	0	0	5600.00	1960	-64.8%	1960	-64.8%	10	0
-2026-02-26	1	10	0	11200.00	4200	-24.6%	4200	-24.6%	10.4	0.025
-2026-03-05	1.1	10	30	12500.00	4655	-16.5%	3581	-35.7%	9.7	0.038
-2026-03-06	1.2	10	40	14000.00	5180	-7.0%	3700	-33.6%	10.2	0.058
-2026-03-09	1.04	10	20	14560.00	5376	-3.5%	4480	-19.6%	11.1	0.077
-2026-03-10	1.1	10	20	15400.00	5670	1.8%	4725	-15.2%	11.4	0.089
-2026-03-11	1.06	10	50	14840.00	5474	-1.8%	3649	-34.5%	12.3	0.098
-2026-03-12	1.04	10	55	14560.00	5376	-3.5%	3468	-37.8%	13.5	0.122
-2026-03-13	1.4	15	114.3	15400.00	5810	4.3%	2711	-51.3%	14.4	0.141
-2026-03-16	1.2	30	100	16800.00	6720	20.6%	3360	-39.7%	15.7	0.132
-2026-03-17	1.13	27	100	15763.16	6273	12.6%	3137	-43.7%	15.2	0.158
-2026-03-18	1.18	28	1.6	16521.12	6566	17.8%	6463	16.0%	16.6	0.172
-2026-03-19	1.36	33	1.6	19057.08	7594	36.3%	7474	34.1%	15.4	0.163
-2026-03-20	1.48	35	40.6	20678.00	8217	47.5%	5844	4.9%	16.9	0.158
-2026-03-23	1.43	34	84.8	19972.40	7942	42.5%	4298	-22.9%	17.7	0.167
-2026-03-24	1.4	34	99.2	19560.80	7798	39.9%	3915	-29.7%	17	0.183
-2026-03-25	1.32	32	147.9	18454.80	7355	32.0%	2967	-46.8%	15.6	0.2
-2026-03-26	1.28	31	147.9	17906.00	7135	28.1%	2878	-48.3%	14	0.201
-2026-03-27	1.34	32	153	18816.00	7482	34.3%	2957	-46.9%	13.7	0.199
-2026-03-30	1.55	37	162.2	21669.20	8620	54.7%	3288	-41.0%	12.3	0.175
-</textarea>
     </div>
-    
-    <div class="input-box">
-        <div class="note">
-            <b>📌 2. 歷史買賣張數紀錄</b><br>
-            ⚙️ 系統將抓取最後 <input type="number" id="calcDays" value="5" style="width: 50px; text-align: center; font-weight: bold; font-size: 14px;"> 個交易日來計算「籌碼動能」。<br>
-            格式：序號/日期/代號/名稱/成交價/漲跌/漲幅/<b style="color:red;">買</b>/<b style="color:green;">賣</b>
+
+    <h1>📊 大樹銀行：籌碼動能與數據分析中心</h1>
+
+    <div id="dataHub" class="data-hub" style="display: none;">
+        <div style="text-align: center;">
+            <div style="font-size: 14px; color: #a0aec0;">市場累計發行</div>
+            <div id="resShares" class="hub-value" style="color: #68d391;">0 股</div>
         </div>
-        <textarea id="tradeData">
-1	20090820	10000	點數銀行	10	0	0%	0	0
-2	20260226	10000	點數銀行	10.4	0.4	4%	0	0
-3	20260305	10000	點數銀行	9.7	-0.7	-7%	37	4
-4	20260306	10000	點數銀行	10.2	0.5	5%	15	16
-5	20260309	10000	點數銀行	11.1	0.9	9%	9	14
-6	20260310	10000	點數銀行	11.4	0.3	3%	18	16
-7	20260311	10000	點數銀行	12.3	0.9	8%	0	1
-8	20260312	10000	點數銀行	13.5	1.2	10%	4	11
-9	20260313	10000	點數銀行	14.4	0.9	7%	2	2
-10	20260316	10000	點數銀行	15.7	1.3	9%	4	1
-11	20260317	10000	點數銀行	15.2	-0.5	-3%	0	1
-12	20260318	10000	點數銀行	16.6	1.4	9%	0	0
-13	20260319	10000	點數銀行	15.4	-1.2	-7%	8	2
-14	20260320	10000	點數銀行	16.9	1.5	10%	6	3
-15	20260323	10000	點數銀行	17.7	0.8	5%	0	2
-16	20260324	10000	點數銀行	17	-0.7	-4%	3	1
-17	20260325	10000	點數銀行	15.6	-1.4	-8%	3	0
-18	20260326	10000	點數銀行	14	-1.6	-10%	6	0
-19	20260327	10000	點數銀行	13.7	-0.3	-2%	3	0
-</textarea>
+        <div style="font-size: 30px; color: #4a5568;">|</div>
+        <div style="text-align: center;">
+            <div style="font-size: 14px; color: #a0aec0;">近期淨買賣超</div>
+            <div id="resNetBuy" class="hub-value" style="color: #fc8181;">0 張</div>
+        </div>
+        <div style="font-size: 30px; color: #4a5568;">|</div>
+        <div style="text-align: center;">
+            <div style="font-size: 14px; color: #a0aec0;">最新名目 GDP</div>
+            <div id="resGdp" class="hub-value">0</div>
+        </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-box">
+            <div class="note"><b>📋 經濟歷史數據 (11欄格式)</b><br>日期 / 通膨 / 週薪 / CPI / 貨幣供給 / 名目GDP / 名目成長率 / 實質GDP / 實質成長率 / 股票結算價 / 吉尼係數</div>
+            <textarea id="inputData">讀取中...</textarea>
+        </div>
+        <div class="input-box">
+            <div class="note"><b>📋 買賣紀錄</b> (計算前 <input type="number" id="calcDays" value="5" style="width: 50px; background: #1a202c; color: #f6e05e; border: 1px solid #4a5568; text-align: center; font-weight: bold;"> 天動能)<br>序號/日期/代號/名稱/成交價/漲跌/漲幅/買/賣</div>
+            <textarea id="tradeData">讀取中...</textarea>
+        </div>
+    </div>
+
+    <button onclick="predictNextPrice()">🚀 執行深度預測計算 (隱藏版)</button>
+
+    <table id="resultTable"></table>
+    <canvas id="priceChart" width="1000" height="400" style="display: none;"></canvas>
+    
+    <div id="analysisReport" style="margin-top: 30px; padding: 25px; background: #2d3748; border-left: 6px solid #f6e05e; border-radius: 8px; display: none;">
+        <h3 style="margin-top: 0; color: #f6e05e; font-size: 22px;">📊 大樹內部深度分析報告</h3>
+        <div id="reportContent" style="line-height: 1.8; font-size: 16px;"></div>
     </div>
 </div>
 
-<button onclick="predictNextPrice()">🚀 啟動綜合分析 (籌碼動能 + 10%極限管控)</button>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
-<table id="resultTable"></table>
-<canvas id="priceChart" width="1000" height="400"></canvas>
+    // 🔗 使用你的 Firebase 金鑰
+    const firebaseConfig = {
+        apiKey: "AIzaSyAyxO9T4XuB0PXiksOLAsqhjx0Xa_VNDqA",
+        authDomain: "gift-41d41.firebaseapp.com",
+        projectId: "gift-41d41",
+        storageBucket: "gift-41d41.firebasestorage.app",
+        messagingSenderId: "51812173213",
+        appId: "1:51812173213:web:4b0d744332e523b15e5b74"
+    };
 
-<div id="analysisReport" style="margin-top: 30px; padding: 20px; background: #fff; border-left: 6px solid #2c3e50; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none;">
-    <h3 style="margin-top: 0; color: #2c3e50;">📊 大樹經濟學家深度分析報告</h3>
-    <div id="reportContent" style="line-height: 1.8; font-size: 15px; color: #333;"></div>
-</div>
-
-<script>
-let chart;
-
-function predictNextPrice(){
-    // --- 1. 處理經濟數據 (讀取 11 欄格式) ---
-    let text = document.getElementById("inputData").value.trim();
-    let lines = text.split("\n").filter(l => l.includes("-")); 
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
     
-    // ⚠️ 修復：確保至少有兩筆資料才能計算前期比較
-    if(lines.length < 2){ 
-        alert("請至少貼入「兩筆」經濟歷史資料，才能計算變動率！"); 
-        return; 
-    }
+    const docRef = doc(db, "stockSystem", "currentData");
 
-    let dates=[], prices=[], gdps=[];
-    for(let i=0;i<lines.length;i++){
-        let cols = lines[i].split("\t");
-        if(cols.length < 10){ alert("經濟資料格式錯誤，請確認包含11欄！"); return; }
-        dates.push(cols[0]);
-        gdps.push(parseFloat(cols[5]));       // 第6欄：名目GDP
-        prices.push(parseFloat(cols[9]));     // 第10欄：股票結算價 (索引9)
-    }
+    let chart;
+    let unsubscribe = null;
 
-    // --- 2. 處理買賣數據 (籌碼面) ---
-    let tradeText = document.getElementById("tradeData").value.trim();
-    let tradeLines = tradeText.split("\n").filter(line => line.trim() !== "");
-    let calcDays = parseInt(document.getElementById("calcDays").value) || 5;
-    
-    let totalLots = 0;   // 所有歷史累積張數 (算出總股數用)
-    let totalBuys = 0;   // 近 N 期買
-    let totalSells = 0;  // 近 N 期賣
-    
-    if(tradeLines.length > 0) {
-        let uniqueDates = [];
-        for(let i=0; i<tradeLines.length; i++){
-            let cols = tradeLines[i].split("\t");
-            if(cols.length >= 9){
-                let dateStr = cols[1]; 
-                if(!uniqueDates.includes(dateStr)) uniqueDates.push(dateStr);
-                totalLots += (parseInt(cols[7]) || 0) - (parseInt(cols[8]) || 0); 
-            }
+    // --- 🔐 權限管理系統 ---
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            startSync(); 
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+            if (unsubscribe) unsubscribe();
         }
-        
-        let recentDates = uniqueDates.slice(-calcDays);
+    });
 
-        for(let i=0; i<tradeLines.length; i++){
-            let cols = tradeLines[i].split("\t");
-            if(cols.length >= 9){
-                let dateStr = cols[1];
-                if(recentDates.includes(dateStr)){
-                    totalBuys += parseInt(cols[7]) || 0;
-                    totalSells += parseInt(cols[8]) || 0;
+    window.handleLogin = () => {
+        document.getElementById('loginError').style.display = 'none';
+        const email = document.getElementById('emailInput').value;
+        const pwd = document.getElementById('pwdInput').value;
+        signInWithEmailAndPassword(auth, email, pwd).catch(() => {
+            document.getElementById('loginError').style.display = 'block';
+        });
+    };
+
+    window.handleLogout = () => signOut(auth);
+
+    // --- ☁️ 雲端同步系統 ---
+    function startSync() {
+        if (unsubscribe) return;
+        unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const d = docSnap.data();
+                document.getElementById('inputData').value = d.inputData || "";
+                document.getElementById('tradeData').value = d.tradeData || "";
+                document.getElementById('calcDays').value = d.calcDays || 5;
+                if(d.inputData && d.inputData.trim() !== "") {
+                    window.predictNextPrice();
+                }
+            } else {
+                document.getElementById('inputData').value = "請在此貼上經濟數據...";
+                document.getElementById('tradeData').value = "請在此貼上歷史買賣紀錄...";
+            }
+        });
+    }
+
+    window.saveDataToCloud = async () => {
+        const btn = document.getElementById('saveBtn');
+        btn.innerText = "⏳ 儲存中...";
+        try {
+            await setDoc(docRef, {
+                inputData: document.getElementById('inputData').value,
+                tradeData: document.getElementById('tradeData').value,
+                calcDays: document.getElementById('calcDays').value
+            });
+            btn.innerText = "✅ 儲存成功！";
+            setTimeout(() => btn.innerText = "💾 儲存並同步數據", 2000);
+        } catch (e) { 
+            alert("同步失敗，請檢查網路。"); 
+            btn.innerText = "💾 儲存並同步數據";
+        }
+    };
+
+    // --- 🧮 核心計算引擎 ---
+    window.predictNextPrice = function(){
+        let text = document.getElementById("inputData").value.trim();
+        let lines = text.split("\n").filter(l => l.includes("-")); 
+        
+        if(lines.length < 2){ 
+            alert("請至少貼入「兩筆」經濟歷史資料，才能計算變動率！"); 
+            return; 
+        }
+
+        let dates=[], prices=[], gdps=[];
+        for(let i=0;i<lines.length;i++){
+            let cols = lines[i].split("\t");
+            if(cols.length < 10){ 
+                alert("經濟資料格式錯誤，請確認包含11欄！"); 
+                return; 
+            }
+            dates.push(cols[0]);
+            gdps.push(parseFloat(cols[5]));       
+            prices.push(parseFloat(cols[9]));     
+        }
+
+        let tradeText = document.getElementById("tradeData").value.trim();
+        let tradeLines = tradeText.split("\n").filter(line => line.trim() !== "");
+        let calcDays = parseInt(document.getElementById("calcDays").value) || 5;
+        
+        let totalLots = 0;   
+        let totalBuys = 0;   
+        let totalSells = 0;  
+        
+        if(tradeLines.length > 0) {
+            let uniqueDates = [];
+            for(let i=0; i<tradeLines.length; i++){
+                let cols = tradeLines[i].split("\t");
+                if(cols.length >= 9){
+                    let dateStr = cols[1]; 
+                    if(!uniqueDates.includes(dateStr)) uniqueDates.push(dateStr);
+                    totalLots += (parseInt(cols[7]) || 0) - (parseInt(cols[8]) || 0); 
+                }
+            }
+            let recentDates = uniqueDates.slice(-calcDays);
+            for(let i=0; i<tradeLines.length; i++){
+                let cols = tradeLines[i].split("\t");
+                if(cols.length >= 9){
+                    let dateStr = cols[1];
+                    if(recentDates.includes(dateStr)){
+                        totalBuys += parseInt(cols[7]) || 0;
+                        totalSells += parseInt(cols[8]) || 0;
+                    }
                 }
             }
         }
-    }
-    
-    let netBuy = totalBuys - totalSells; 
-    let momentumFactor = netBuy * 0.005; 
-
-    // 更新頂部 Data Hub 面板
-    let totalShares = totalLots * 10;
-    let latestGdp = gdps[gdps.length - 1];
-    document.getElementById("dataHub").style.display = "flex";
-    document.getElementById("resShares").innerText = totalShares + " 股";
-    document.getElementById("resNetBuy").innerText = netBuy + " 張";
-    document.getElementById("resGdp").innerText = latestGdp;
-
-    // --- 3. 計算預測基準 (完美升級版邏輯 + 估值地心引力) ---
-    // 🛠️ 修復：定義 lastLine 和 prevLine
-    let lastLine = lines[lines.length - 1].split("\t");
-    let prevLine = lines[lines.length - 2].split("\t");
-
-    // 🛠️ 修復：計算歷史慣性 (avgChange)，此處取最近一期的漲跌幅作為慣性基準
-    let prevPrice = parseFloat(lastLine[9]);       
-    let olderPrice = parseFloat(prevLine[9]);
-    let avgChange = olderPrice > 0 ? ((prevPrice - olderPrice) / olderPrice) * 0.5 : 0;
-
-    let inflation = parseFloat(lastLine[1]);       
-    let wage = parseFloat(lastLine[2]);            
-    let cpi = parseFloat(lastLine[3]);             
-    let money = parseFloat(lastLine[4]);           
-    let prevMoney = parseFloat(prevLine[4]); 
-    let prevCpi = parseFloat(prevLine[3]);     
-    let latestNominalGdp = parseFloat(lastLine[5]); 
-    let realGdpGrowth = parseFloat(lastLine[8]);   
-    let gini = parseFloat(lastLine[10]);           
-
-    // 🍎 估值地心引力 (巴菲特指標)
-    let marketCap = totalShares * prevPrice; 
-    let valuationRatio = (latestNominalGdp > 0) ? (marketCap / latestNominalGdp) : 1.5; 
-    let factorGravity = 0;
-    let gravityStatus = "估值合理";
-
-    if (valuationRatio >= 2.5) {
-        factorGravity = -0.05; 
-        gravityStatus = "🔴 嚴重高估 (泡沫警告)";
-    } else if (valuationRatio >= 1.8) {
-        factorGravity = -0.02; 
-        gravityStatus = "🟡 估值偏高 (存在壓力)";
-    } else if (valuationRatio <= 0.8) {
-        factorGravity = 0.05;  
-        gravityStatus = "🟢 嚴重低估 (絕佳買點)";
-    } else if (valuationRatio <= 1.2) {
-        factorGravity = 0.02;  
-        gravityStatus = "🟢 估值偏低 (具備潛力)";
-    } else {
-        factorGravity = 0;
-        gravityStatus = "⚪ 估值合理 (安全區間)";
-    }
-
-    let moneyGrowth = (prevMoney && prevMoney > 0) ? ((money - prevMoney) / prevMoney) : 0;
-    
-    // ⚠️ 修正 1：改用「絕對差值」來算 CPI 變動，避免低基期造成的倍數爆炸
-    // 例如 CPI 從 120 變 130，就是增加了 10%，也就是 0.1
-    let cpiGrowth = (cpi - prevCpi) / 100; 
-    
-    // ⚠️ 修正 2：調降通膨的敏感度乘數 (從 10 降為 1)
-    let cpiMultiplier = 1; 
-    let sensitiveCpiGrowth = cpiGrowth * cpiMultiplier;
-
-    // ⚠️ 修正 3：調降實質 GDP 對股價的殺傷力 (權重從 0.4 降為 0.15)
-    // 即使實質經濟不好，股市通常會因為名目資金 (Money) 變多而硬撐
-    let factorGDP = 0.15 * (realGdpGrowth / 100);
-    let factorMoney = 0.3 * moneyGrowth;
-    
-    // ⚠️ 修正 4：微調通膨懲罰，控制在合理範圍
-    let factorInflation = -0.05 * (inflation - 1) - 0.2 * sensitiveCpiGrowth; 
-    let factorGini = 0.05 * (gini);
-
-    let econFactor = factorGDP + factorMoney + factorInflation + factorGini + factorGravity;
-    let baseChange = avgChange + econFactor + momentumFactor;
-    
-    if(baseChange > 0.1) baseChange = 0.1;
-    if(baseChange < -0.1) baseChange = -0.1;
-
-    // --- 4. 判斷情緒 ---
-    const sentimentLevels = {
-        "高度樂觀":0.03, "中度樂觀":0.02, "輕度樂觀":0.01,
-        "中性":0,
-        "輕度悲觀":-0.01, "中度悲觀":-0.02, "高度悲觀":-0.03
-    };
-
-    let score = baseChange;
-    let sentiment = "";
-    if(score>0.05) sentiment="高度樂觀";
-    else if(score>0.03) sentiment="中度樂觀";
-    else if(score>0) sentiment="輕度樂觀";
-    else if(score>-0.03) sentiment="中性";
-    else if(score>-0.05) sentiment="輕度悲觀";
-    else if(score>-0.08) sentiment="中度悲觀";
-    else sentiment="高度悲觀";
-
-    let sentimentFactor = sentimentLevels[sentiment];
-
-    // --- 5. 輸出結果與 10% 漲跌幅控制 ---
-    let maxLimit = prevPrice * 1.10;
-    let minLimit = prevPrice * 0.90;
-
-    let table = `<tr>
-        <th>情境</th><th>前一天股價</th><th>預測股價</th><th>預測變動%</th><th>漲跌限制</th><th>分析說明 (經濟面 + 籌碼面)</th>
-    </tr>`;
-
-    let scenarioNames = Object.keys(sentimentLevels);
-    let chartData={};
-    
-    scenarioNames.forEach(name=>{
-        chartData[name] = [...prices]; 
         
-        let rawP = prevPrice * (1 + baseChange + sentimentLevels[name]);
-        let finalP = rawP;
-        let limitNote = "";
+        let netBuy = totalBuys - totalSells; 
+        let momentumFactor = netBuy * 0.005; 
 
-        if (finalP > maxLimit) { finalP = maxLimit; limitNote = "⚠️ 觸發漲停"; }
-        if (finalP < minLimit) { finalP = minLimit; limitNote = "⚠️ 觸發跌停"; }
-
-        finalP = Math.round(finalP*10)/10;
-        chartData[name].push(finalP);
-
-        let actualDiff = (((finalP/prevPrice)-1)*100).toFixed(1)+"%";
-        let colorClass = finalP >= prevPrice ? "up" : "down";
+        let totalShares = totalLots * 10;
+        let latestGdp = gdps[gdps.length - 1];
         
-        table += `<tr>
-            <td>${name}</td>
-            <td>${prevPrice}</td>
-            <td class="${colorClass}">${finalP}</td>
-            <td class="${colorClass}">${actualDiff}</td>
-            <td class="limit">${limitNote}</td>
-            <td style="text-align:left; font-size:13px;">
-                <b>經濟:</b> (實質GDP成長:${realGdpGrowth}%, 通膨:${inflation})<br>
-                <b>籌碼(近${calcDays}期):</b> 淨買入 ${netBuy} 張 (動能影響 ${(momentumFactor*100).toFixed(1)}%)
-            </td>
+        document.getElementById("dataHub").style.display = "flex";
+        document.getElementById("resShares").innerText = totalShares + " 股";
+        document.getElementById("resNetBuy").innerText = netBuy + " 張";
+        document.getElementById("resGdp").innerText = latestGdp;
+
+        let lastLine = lines[lines.length - 1].split("\t");
+        let prevLine = lines[lines.length - 2].split("\t");
+
+        let prevPrice = parseFloat(lastLine[9]);       
+        let olderPrice = parseFloat(prevLine[9]);
+        let avgChange = olderPrice > 0 ? ((prevPrice - olderPrice) / olderPrice) * 0.5 : 0;
+
+        let inflation = parseFloat(lastLine[1]);       
+        let wage = parseFloat(lastLine[2]);            
+        let cpi = parseFloat(lastLine[3]);             
+        let money = parseFloat(lastLine[4]);           
+        let prevMoney = parseFloat(prevLine[4]); 
+        let prevCpi = parseFloat(prevLine[3]);     
+        let latestNominalGdp = parseFloat(lastLine[5]); 
+        let realGdpGrowth = parseFloat(lastLine[8]);   
+        let gini = parseFloat(lastLine[10]);           
+
+        let marketCap = totalShares * prevPrice; 
+        let valuationRatio = (latestNominalGdp > 0) ? (marketCap / latestNominalGdp) : 1.5; 
+        let factorGravity = 0;
+        let gravityStatus = "估值合理";
+
+        if (valuationRatio >= 2.5) { factorGravity = -0.05; gravityStatus = "🔴 嚴重高估 (泡沫警告)"; } 
+        else if (valuationRatio >= 1.8) { factorGravity = -0.02; gravityStatus = "🟡 估值偏高 (存在壓力)"; } 
+        else if (valuationRatio <= 0.8) { factorGravity = 0.05; gravityStatus = "🟢 嚴重低估 (絕佳買點)"; } 
+        else if (valuationRatio <= 1.2) { factorGravity = 0.02; gravityStatus = "🟢 估值偏低 (具備潛力)"; } 
+        else { factorGravity = 0; gravityStatus = "⚪ 估值合理 (安全區間)"; }
+
+        let moneyGrowth = (prevMoney && prevMoney > 0) ? ((money - prevMoney) / prevMoney) : 0;
+        let cpiGrowth = (cpi - prevCpi) / 100; 
+        let sensitiveCpiGrowth = cpiGrowth * 1;
+        let factorGDP = 0.15 * (realGdpGrowth / 100);
+        let factorMoney = 0.3 * moneyGrowth;
+        let factorInflation = -0.05 * (inflation - 1) - 0.2 * sensitiveCpiGrowth; 
+        let factorGini = 0.05 * (gini);
+
+        let econFactor = factorGDP + factorMoney + factorInflation + factorGini + factorGravity;
+        let baseChange = avgChange + econFactor + momentumFactor;
+        
+        if(baseChange > 0.1) baseChange = 0.1;
+        if(baseChange < -0.1) baseChange = -0.1;
+
+        const sentimentLevels = {
+            "高度樂觀":0.03, "中度樂觀":0.02, "輕度樂觀":0.01,
+            "中性":0,
+            "輕度悲觀":-0.01, "中度悲觀":-0.02, "高度悲觀":-0.03
+        };
+
+        let score = baseChange;
+        let sentiment = "";
+        if(score>0.05) sentiment="高度樂觀";
+        else if(score>0.03) sentiment="中度樂觀";
+        else if(score>0) sentiment="輕度樂觀";
+        else if(score>-0.03) sentiment="中性";
+        else if(score>-0.05) sentiment="輕度悲觀";
+        else if(score>-0.08) sentiment="中度悲觀";
+        else sentiment="高度悲觀";
+
+        let sentimentFactor = sentimentLevels[sentiment];
+        let maxLimit = prevPrice * 1.10;
+        let minLimit = prevPrice * 0.90;
+
+        let table = `<tr><th>情境</th><th>前一天股價</th><th>預測股價</th><th>預測變動%</th><th>漲跌限制</th></tr>`;
+        let chartData={};
+        
+        Object.keys(sentimentLevels).forEach(name=>{
+            chartData[name] = [...prices]; 
+            let rawP = prevPrice * (1 + baseChange + sentimentLevels[name]);
+            let finalP = rawP;
+            let limitNote = "";
+
+            if (finalP > maxLimit) { finalP = maxLimit; limitNote = "⚠️ 觸發漲停"; }
+            if (finalP < minLimit) { finalP = minLimit; limitNote = "⚠️ 觸發跌停"; }
+
+            finalP = Math.round(finalP*10)/10;
+            chartData[name].push(finalP);
+
+            let actualDiff = (((finalP/prevPrice)-1)*100).toFixed(1)+"%";
+            let colorClass = finalP >= prevPrice ? "up" : "down";
+            
+            table += `<tr>
+                <td>${name}</td><td>${prevPrice}</td>
+                <td class="${colorClass}">${finalP}</td>
+                <td class="${colorClass}">${actualDiff}</td>
+                <td class="limit">${limitNote}</td>
+            </tr>`;
+        });
+
+        let realPrice = prevPrice * (1 + baseChange + sentimentFactor);
+        let realNote = "";
+        if (realPrice > maxLimit) { realPrice = maxLimit; realNote = "⚠️ 觸發漲停"; }
+        if (realPrice < minLimit) { realPrice = minLimit; realNote = "⚠️ 觸發跌停"; }
+        
+        realPrice = Math.round(realPrice*10)/10;
+        chartData["真實情況建議"] = [...prices, realPrice];
+        
+        let totalPercent = (((realPrice/prevPrice)-1)*100).toFixed(1);
+        let realColorClass = totalPercent >= 0 ? "up" : "down";
+        
+        table += `<tr style="background:#4a5568;">
+            <td colspan="2" style="font-size:18px;"><b>🎯 綜合結果 (${sentiment})</b></td>
+            <td class="${realColorClass}" style="font-size:18px;"><b>${realPrice}</b></td>
+            <td class="${realColorClass}" style="font-size:18px;"><b>${totalPercent}%</b></td>
+            <td class="limit" style="font-size:14px;">${realNote}</td>
         </tr>`;
-    });
 
-    let rawReal = prevPrice * (1 + baseChange + sentimentFactor);
-    let realPrice = rawReal;
-    let realNote = "";
-    if (realPrice > maxLimit) { realPrice = maxLimit; realNote = "⚠️ 觸發漲停"; }
-    if (realPrice < minLimit) { realPrice = minLimit; realNote = "⚠️ 觸發跌停"; }
-    
-    realPrice = Math.round(realPrice*10)/10;
-    chartData["真實情況建議"] = [...prices, realPrice];
-    
-    let totalPercent = (((realPrice/prevPrice)-1)*100).toFixed(1);
-    let realColorClass = totalPercent >= 0 ? "up" : "down";
-    
-    table += `<tr style="background:#e8f4f8;">
-        <td colspan="2" style="font-size:18px;"><b>🎯 綜合預測結果 (${sentiment})</b></td>
-        <td class="${realColorClass}" style="font-size:18px;"><b>${realPrice}</b></td>
-        <td class="${realColorClass}" style="font-size:18px;"><b>${totalPercent}%</b></td>
-        <td class="limit" style="font-size:14px;">${realNote}</td>
-        <td style="text-align:left;">綜合經濟數據，結合近 ${calcDays} 期籌碼動能(淨買入 ${netBuy} 張)之結果，並套用±10%限制。</td>
-    </tr>`;
-
-    let chartDates = [...dates, "下一期預測"];
-    document.getElementById("resultTable").innerHTML = table;
-
-    // --- 6. 繪圖 ---
-    if(chart) chart.destroy();
-    chart = new Chart(document.getElementById("priceChart"),{
-        type:'line',
-        data:{
-            labels: chartDates,
-            datasets:[
-                {label:"高度樂觀", data:chartData["高度樂觀"], borderColor:'rgba(139,0,0,0.3)', fill:false},
-                {label:"中度樂觀", data:chartData["中度樂觀"], borderColor:'rgba(255,0,0,0.3)', fill:false},
-                {label:"輕度樂觀", data:chartData["輕度樂觀"], borderColor:'rgba(255,165,0,0.3)', fill:false},
-                {label:"中性", data:chartData["中性"], borderColor:'rgba(128,128,128,0.3)', fill:false},
-                {label:"輕度悲觀", data:chartData["輕度悲觀"], borderColor:'rgba(144,238,144,0.3)', fill:false},
-                {label:"中度悲觀", data:chartData["中度悲觀"], borderColor:'rgba(0,128,0,0.3)', fill:false},
-                {label:"高度悲觀", data:chartData["高度悲觀"], borderColor:'rgba(0,100,0,0.3)', fill:false},
-                {label:`🎯 真實情況預測 (${sentiment})`, data:chartData["真實情況建議"], borderColor:'blue', fill:false, borderWidth:4, pointRadius: 5}
-            ]
-        },
-        options:{
-            responsive:true,
-            plugins:{
-                title: { display: true, text: `市場當前情緒預測：${sentiment} (已套用±10%限制)`, font: {size: 18} },
-                legend:{position:'top'},
-                zoom:{
-                    pan:{ enabled:true, mode:'x', modifierKey:'ctrl' },
-                    zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x' }
-                }
+        document.getElementById("resultTable").innerHTML = table;
+        
+        // --- 繪製圖表 ---
+        document.getElementById("priceChart").style.display = "block";
+        let chartDates = [...dates, "下一期預測"];
+        if(chart) chart.destroy();
+        
+        Chart.defaults.color = '#cbd5e0';
+        Chart.defaults.borderColor = '#4a5568';
+        
+        chart = new Chart(document.getElementById("priceChart"),{
+            type:'line',
+            data:{
+                labels: chartDates,
+                datasets:[
+                    {label:"高度樂觀", data:chartData["高度樂觀"], borderColor:'rgba(252, 129, 129, 0.3)', fill:false},
+                    {label:"中性", data:chartData["中性"], borderColor:'rgba(160, 174, 192, 0.3)', fill:false},
+                    {label:"高度悲觀", data:chartData["高度悲觀"], borderColor:'rgba(104, 211, 145, 0.3)', fill:false},
+                    {label:`🎯 真實情況預測 (${sentiment})`, data:chartData["真實情況建議"], borderColor:'#f6e05e', fill:false, borderWidth:4, pointRadius: 5}
+                ]
             },
-            scales:{
-                y:{beginAtZero:false,title:{display:true,text:'股價'}},
-                x:{title:{display:true,text:'日期'}}
+            options:{
+                responsive:true,
+                plugins:{ title: { display: true, text: `市場當前情緒預測：${sentiment}`, font: {size: 18}, color: '#f6e05e' } }
             }
-        }
-    });
+        });
 
-// ==========================================
-    // 📝 自動生成「經濟學家分析報告」 (清晰明確版)
-    // ==========================================
-    
-    const toPercent = (num) => {
-        let p = (num * 100).toFixed(2);
-        return p > 0 ? `+${p}%` : `${p}%`;
-    };
+        // ==========================================
+        // 📝 自動生成「經濟學家分析報告」 (深色模式完整版)
+        // ==========================================
+        
+        const toPercent = (num) => {
+            let p = (num * 100).toFixed(2);
+            return p > 0 ? `+${p}%` : `${p}%`;
+        };
 
-    // 依據數值正負，決定顯示文字與顏色 (台灣股市：紅漲綠跌)
-    const getForceText = (val) => val >= 0 ? `<b style="color: red;">${toPercent(val)} 的上漲動能</b>` : `<b style="color: green;">${toPercent(val)} 的下跌壓力</b>`;
-    
-    // 動態判斷各項指標的敘述
-    let gdpDesc = realGdpGrowth >= 0 ? "企業與學生實質創造了獲利，經濟正在擴張" : "受到物價或產出減少影響，實質經濟陷入衰退";
-    let moneyDesc = moneyGrowth >= 0 ? "流通資金變多了，熱錢容易湧入股市" : "流通資金減少了，資金正在撤出股市";
-    let inflationDesc = factorInflation >= 0 ? "目前的物價波動在可控範圍，未對股市造成傷害" : "物價飆漲引發了通膨恐慌，嚴重吃掉民眾購買力，壓抑了股市表現";
-    let giniDesc = factorGini >= 0 ? "財富較為集中，大戶容易將閒置資金投入股市炒作" : "財富分配相對平均，市場缺乏大戶炒作資金";
-    let gravityDesc = factorGravity >= 0 ? "目前股價很便宜，具備向上反彈的推力" : "目前股價已偏貴，面臨向下修正的拉力";
-    let momentumDesc = netBuy >= 0 ? "市場情緒樂觀，出現追捧買盤" : "市場情緒悲觀，出現拋售賣壓";
+        // 依據數值正負，決定顯示文字與顏色 (深色模式的紅與綠)
+        const getForceText = (val) => val >= 0 ? `<b style="color: #fc8181;">${toPercent(val)} 的上漲推力</b>` : `<b style="color: #68d391;">${toPercent(val)} 的下跌壓力</b>`;
+        
+        // 動態判斷各項指標的敘述
+        let gdpDesc = realGdpGrowth >= 0 ? "企業與學生實質創造了獲利，經濟正在擴張" : "受到物價或產出減少影響，實質經濟陷入衰退";
+        let moneyDesc = moneyGrowth >= 0 ? "流通資金變多了，熱錢容易湧入股市" : "流通資金減少了，資金正在撤出股市";
+        let inflationDesc = factorInflation >= 0 ? "目前的物價波動在可控範圍，未對股市造成嚴重傷害" : "物價飆漲引發了通膨恐慌，嚴重吃掉購買力，壓抑了股市表現";
+        let giniDesc = factorGini >= 0 ? "財富較為集中，大戶容易將閒置資金投入股市炒作" : "財富分配相對平均，市場缺乏大戶炒作資金";
+        let gravityDesc = factorGravity >= 0 ? "目前股價很便宜，具備向上反彈的推力" : "目前股價已偏貴，面臨向下修正的拉力";
+        let momentumDesc = netBuy >= 0 ? "市場情緒樂觀，出現追捧買盤" : "市場情緒悲觀，出現拋售賣壓";
 
-    let reportHTML = `
-        <p>根據最新一期的經濟數據，本次股價的漲跌動能主要由以下幾個基本面組成：</p>
-        <ul style="list-style-type: none; padding-left: 0;">
-            <li style="margin-bottom: 12px;">
-                <b>📈 實質經濟動能 (權重 15%)：</b><br>
-                班級目前的實質 GDP 成長率為 <b>${realGdpGrowth}%</b>。這代表${gdpDesc}，為股價基本面帶來了 ${getForceText(factorGDP)}。
+        let reportHTML = `
+            <p style="color: #cbd5e0; font-size: 16px;">根據最新一期的經濟數據，本次股價的漲跌動能主要由以下幾個基本面組成：</p>
+            <ul style="list-style-type: none; padding-left: 0; color: #e2e8f0;">
+            <li style="margin-bottom: 15px;">
+                <span style="font-size: 18px;"><b>📈 實質經濟動能 (影響係數 0.15)：</b></span><br>
+                <span style="color:#a0aec0;">班級目前的實質 GDP 成長率為 <b style="color:#fff;">${realGdpGrowth}%</b>。這代表${gdpDesc}，為股價基本面帶來了 ${getForceText(factorGDP)}。</span>
             </li>
-            <li style="margin-bottom: 12px;">
-                <b>💸 資金熱錢效應 (權重 30%)：</b><br>
-                相比上一期，市場貨幣供給量變動了 <b>${toPercent(moneyGrowth)}</b>。這意味著${moneyDesc}，為股價貢獻了 ${getForceText(factorMoney)}。
+            <li style="margin-bottom: 15px;">
+                <span style="font-size: 18px;"><b>💸 資金熱錢效應 (影響係數 0.30)：</b></span><br>
+                <span style="color:#a0aec0;">相比上一期，市場貨幣供給量變動了 <b style="color:#fff;">${toPercent(moneyGrowth)}</b>。這意味著${moneyDesc}，為股價貢獻了 ${getForceText(factorMoney)}。</span>
             </li>
-            <li style="margin-bottom: 12px;">
-                <b>📉 物價與通膨壓力 (權重 30%)：</b><br>
-                班級目前的通膨指數為 <b>${inflation}</b>，CPI 相比前期變動了 <b>${(cpiGrowth * 100).toFixed(1)}%</b>。<br>
-                系統判定：${inflationDesc}，這產生了 ${getForceText(factorInflation)}。
+            <li style="margin-bottom: 15px;">
+                <span style="font-size: 18px;"><b>📉 物價與通膨壓力 (綜合敏感度高)：</b></span><br>
+                <span style="color:#a0aec0;">班級目前的通膨指數為 <b style="color:#fff;">${inflation}</b>，CPI 相比前期變動了 <b style="color:#fff;">${(cpiGrowth * 100).toFixed(1)}%</b>。<br>
+                系統判定：${inflationDesc}，這產生了 ${getForceText(factorInflation)}。</span>
             </li>
-            <li style="margin-bottom: 12px;">
-                <b>⚖️ 貧富差距效應 (權重 5%)：</b><br>
-                當前吉尼係數為 <b>${gini}</b>。因為${giniDesc}，微幅帶來了 ${getForceText(factorGini)}。
+            <li style="margin-bottom: 15px;">
+                <span style="font-size: 18px;"><b>⚖️ 貧富差距效應 (影響係數 0.05)：</b></span><br>
+                <span style="color:#a0aec0;">當前吉尼係數為 <b style="color:#fff;">${gini}</b>。因為${giniDesc}，微幅帶來了 ${getForceText(factorGini)}。</span>
             </li>
-            <li style="margin-bottom: 12px; padding-top: 12px; border-top: 1px dashed #ccc;">
-                <b>🍎 估值地心引力 (巴菲特指標)：</b><br>
-                班級股市總市值為 <b>${Math.round(marketCap)}</b> 點，對比名目 GDP(${latestNominalGdp})，估值倍數為 <b>${valuationRatio.toFixed(2)} 倍</b>。<br>
-                系統判定目前狀態為「<b>${gravityStatus}</b>」，代表${gravityDesc}，這為股價帶來了 ${getForceText(factorGravity)}！
+            <li style="margin-bottom: 15px; padding-top: 15px; border-top: 1px dashed #4a5568;">
+                <span style="font-size: 18px;"><b>🍎 估值地心引力 (巴菲特指標)：</b></span><br>
+                <span style="color:#a0aec0;">班級股市總市值為 <b style="color:#fff;">${Math.round(marketCap)}</b> 點，對比名目 GDP(${latestNominalGdp})，估值倍數為 <b style="color:#fff;">${valuationRatio.toFixed(2)} 倍</b>。<br>
+                系統判定目前狀態為「<b style="color:#f6e05e;">${gravityStatus}</b>」，代表${gravityDesc}，這為股價帶來了 ${getForceText(factorGravity)}！</span>
             </li>
-            <li style="margin-bottom: 12px; padding-top: 12px; border-top: 1px dashed #ccc;">
-                <b>🛍️ 投資人情緒與籌碼動能：</b><br>
-                近 ${calcDays} 期內，全班淨買賣超為 <b>${netBuy} 張</b>。${momentumDesc}，這股情緒直接為股價附加了 ${getForceText(momentumFactor)}！
+            <li style="margin-bottom: 15px; padding-top: 15px; border-top: 1px dashed #4a5568;">
+                <span style="font-size: 18px;"><b>🛍️ 投資人情緒與籌碼動能：</b></span><br>
+                <span style="color:#a0aec0;">近 ${calcDays} 期內，全班淨買賣超為 <b style="color:#fff;">${netBuy} 張</b>。${momentumDesc}，這股情緒直接為股價附加了 ${getForceText(momentumFactor)}！</span>
             </li>
-        </ul>
-        <div style="background: #fdfefe; padding: 15px; border-radius: 8px; border: 1px solid #d0d3d4; margin-top: 15px;">
-            <p style="font-weight: bold; color: #d35400; margin: 0; font-size: 16px;">
-                💡 總結分析：
-            </p>
-            <p style="margin: 5px 0 0 0; color: #34495e;">
-                總體經濟分數 (<b>${toPercent(econFactor)}</b>) ＋ 籌碼動能 (<b>${toPercent(momentumFactor)}</b>) ＋ 歷史慣性 (<b>${toPercent(avgChange)}</b>) = 決定了最終的股價走勢！
-            </p>
-        </div>
-    `;
+            </ul>
+            <div style="background: #1a202c; padding: 20px; border-radius: 8px; border: 1px solid #f6e05e; margin-top: 20px;">
+                <p style="font-weight: bold; color: #f6e05e; margin: 0; font-size: 18px;">
+                    💡 總結分析：
+                </p>
+                <p style="margin: 10px 0 0 0; color: #e2e8f0; font-size: 16px;">
+                    總體經濟分數 (<b>${toPercent(econFactor)}</b>) ＋ 籌碼動能 (<b>${toPercent(momentumFactor)}</b>) ＋ 歷史慣性 (<b>${toPercent(avgChange)}</b>) = 決定了最終的股價走勢！
+                </p>
+            </div>
+        `;
 
-    let reportDiv = document.getElementById("analysisReport");
-    let contentDiv = document.getElementById("reportContent");
-    if(reportDiv && contentDiv) {
-        contentDiv.innerHTML = reportHTML;
-        reportDiv.style.display = "block"; 
+        document.getElementById("reportContent").innerHTML = reportHTML;
+        document.getElementById("analysisReport").style.display = "block"; 
     }
-}
 </script>
-
 </body>
 </html>
